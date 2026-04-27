@@ -38,9 +38,13 @@ final class AppState: ObservableObject {
                       self?.articles = items
                   })
 
+        // Manual import works without API keys, so always scan + reconcile.
+        ManualFileScanner.scan()
+        reconcileLibrary()
+
+        // Instapaper polling and Firecrawl/Claude conversion need keys —
+        // only spin those up when fully configured.
         if !needsSettings {
-            ManualFileScanner.scan()
-            reconcileLibrary()
             schedulePolling()
             scheduleConversion()
         }
@@ -86,10 +90,18 @@ final class AppState: ObservableObject {
     }
 
     func onSettingsSaved() {
-        needsSettings = false
-        schedulePolling()
-        scheduleConversion()
-        Task { await pollNow() }
+        needsSettings = !hasRequiredSecrets()
+        if !needsSettings {
+            schedulePolling()
+            scheduleConversion()
+            Task { await pollNow() }
+        } else {
+            // User cleared their keys — stop background work that would now
+            // hit the Keychain-missing guard on every iteration.
+            pollTask?.cancel()
+            convertTask?.cancel()
+            lastPollError = nil
+        }
     }
 
     private func hasRequiredSecrets() -> Bool {
@@ -119,6 +131,9 @@ final class AppState: ObservableObject {
         // Refresh — independent of whether the Instapaper call succeeds.
         ManualFileScanner.scan()
         reconcileLibrary()
+        // No Instapaper credentials → import-only mode. Refresh still picks
+        // up newly dropped EPUB files via the scan above.
+        guard hasRequiredSecrets() else { return }
         do {
             let bookmarks = try await Instapaper.shared.listBookmarks(limit: 200)
             let articles = bookmarks.compactMap { $0.toArticle() }

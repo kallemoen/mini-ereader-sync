@@ -16,7 +16,6 @@ struct MenuView: View {
         .frame(width: 380, height: 520)
         .onAppear {
             state.wifi.setFastScanning(true)
-            if state.needsSettings { openSettings() }
         }
         .onDisappear {
             state.wifi.setFastScanning(false)
@@ -67,7 +66,9 @@ struct MenuView: View {
                     Image(systemName: "tray")
                         .font(.largeTitle)
                         .foregroundStyle(.tertiary)
-                    Text("No articles yet.\nSave something to Instapaper.")
+                    Text(state.needsSettings
+                         ? "No articles yet.\nUse Import… to add EPUBs, or set up Instapaper in Settings."
+                         : "No articles yet.\nSave something to Instapaper, or use Import…")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)

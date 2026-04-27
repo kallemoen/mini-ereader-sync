@@ -17,7 +17,7 @@ struct SettingsView: View {
             Text("Mini E-Reader Settings")
                 .font(.title2).bold()
 
-            Text("All secrets are stored in your macOS Keychain. Nothing is sent anywhere except directly to Instapaper, Anthropic, and the reader.")
+            Text("API keys are only required for Instapaper sync. You can use the Import feature without filling anything in. To enable Instapaper, fill out every field — partial setups can't be saved.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -84,7 +84,10 @@ struct SettingsView: View {
         }
     }
 
-    private var canSave: Bool {
+    /// Either every field is filled (full Instapaper setup) or every field is
+    /// empty (import-only mode). Anything in between is rejected — see the
+    /// helper copy above the Save button.
+    private var allFilled: Bool {
         !consumerKey.isEmpty &&
         !consumerSecret.isEmpty &&
         !anthropicKey.isEmpty &&
@@ -92,14 +95,33 @@ struct SettingsView: View {
         (hasToken || (!username.isEmpty && !password.isEmpty))
     }
 
+    private var allEmpty: Bool {
+        consumerKey.isEmpty &&
+        consumerSecret.isEmpty &&
+        anthropicKey.isEmpty &&
+        firecrawlKey.isEmpty &&
+        username.isEmpty &&
+        password.isEmpty
+    }
+
+    private var canSave: Bool { allFilled || allEmpty }
+
     private func save() {
-        Keychain.set(consumerKey, for: .instapaperConsumerKey)
-        Keychain.set(consumerSecret, for: .instapaperConsumerSecret)
-        Keychain.set(anthropicKey, for: .anthropicAPIKey)
-        Keychain.set(firecrawlKey, for: .firecrawlAPIKey)
-        if !hasToken {
-            Keychain.set(username, for: .instapaperUsername)
-            Keychain.set(password, for: .instapaperPassword)
+        if allEmpty {
+            // Import-only mode: wipe every Instapaper-related secret so the
+            // poller stays disabled until the user fills the form properly.
+            for key in Keychain.Key.allCases {
+                Keychain.delete(key)
+            }
+        } else {
+            Keychain.set(consumerKey, for: .instapaperConsumerKey)
+            Keychain.set(consumerSecret, for: .instapaperConsumerSecret)
+            Keychain.set(anthropicKey, for: .anthropicAPIKey)
+            Keychain.set(firecrawlKey, for: .firecrawlAPIKey)
+            if !hasToken {
+                Keychain.set(username, for: .instapaperUsername)
+                Keychain.set(password, for: .instapaperPassword)
+            }
         }
         // Window close is handled by the host (AppDelegate) via onSave.
         onSave()
