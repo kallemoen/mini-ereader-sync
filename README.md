@@ -2,7 +2,12 @@
 
 A tiny macOS menu bar app that turns your Instapaper saves into clean EPUBs and one-click syncs them to an [XTEink X4](https://www.xteink.com/products/xteink-x4) e-reader running [CrossPoint firmware](https://github.com/crosspoint-reader/crosspoint-reader).
 
-No cloud, no accounts, no database. Everything runs locally on your Mac.
+App also has a feature for importing epubs directly into the app. No cloud, no accounts, no database. Everything runs locally on your Mac.
+
+To use app you need:
+- Instapaper api keys
+- Anthropic API key
+- Firecrawl API key
 
 > _GIF placeholder — record a 30s clip of the flow once built and drop it at `docs/screenshots/demo.gif`._
 
