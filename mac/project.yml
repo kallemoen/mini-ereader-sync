@@ -1,0 +1,52 @@
+name: MiniEreader
+options:
+  bundleIdPrefix: com.mini-ereader
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+packages:
+  GRDB:
+    url: https://github.com/groue/GRDB.swift
+    from: "6.29.0"
+  ZIPFoundation:
+    url: https://github.com/weichsel/ZIPFoundation
+    from: "0.9.19"
+
+targets:
+  MiniEreader:
+    type: application
+    platform: macOS
+    sources:
+      - path: MiniEreader
+    info:
+      path: MiniEreader/Info.plist
+      properties:
+        CFBundleName: Mini E-Reader
+        CFBundleDisplayName: Mini E-Reader
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        LSUIElement: true
+        LSMinimumSystemVersion: "14.0"
+        NSHumanReadableCopyright: ""
+        NSLocationUsageDescription: "Mini E-Reader uses your location only to read the current Wi-Fi network name so it can tell when you are connected to the e-reader. Your location is never stored or transmitted."
+        NSLocationWhenInUseUsageDescription: "Mini E-Reader uses your location only to read the current Wi-Fi network name so it can tell when you are connected to the e-reader. Your location is never stored or transmitted."
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+    entitlements:
+      path: MiniEreader/MiniEreader.entitlements
+      properties:
+        com.apple.security.app-sandbox: false
+        com.apple.security.network.client: true
+        com.apple.security.personal-information.location: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mini-ereader.app
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        SWIFT_VERSION: "5.10"
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: "-"
+        ENABLE_HARDENED_RUNTIME: YES
+    dependencies:
+      - package: GRDB
+      - package: ZIPFoundation
