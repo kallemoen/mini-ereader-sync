@@ -20,17 +20,29 @@ enum ReaderError: Error, LocalizedError {
 ///   GET  /api/files?path=/      JSON directory listing
 ///   GET  /api/status            JSON device status (also a good reachability probe)
 ///
-/// We put everything under `/MiniEreader/` so it's obvious on the reader
-/// where these files came from, and so they don't mix with books the user
-/// uploaded through other means.
+/// Instapaper articles go to `/Articles/`; manually imported EPUBs go to
+/// `/Imported files/`. Splitting them keeps the reader's library tidy and
+/// makes it obvious where each file came from.
 ///
 /// A dedicated ephemeral URLSession is used because the reader's AP has no
 /// internet route and the shared session's connectivity pre-check returns
 /// -1009 otherwise.
 enum ReaderClient {
     static let baseURL = URL(string: "http://192.168.4.1")!
-    static let booksFolder = "Articles"
-    static var booksPath: String { "/\(booksFolder)" }
+
+    enum Destination {
+        case instapaper
+        case imported
+
+        var folder: String {
+            switch self {
+            case .instapaper: return "Articles"
+            case .imported: return "Imported files"
+            }
+        }
+
+        var path: String { "/\(folder)" }
+    }
 
     private static let session: URLSession = {
         let config = URLSessionConfiguration.ephemeral
@@ -45,14 +57,14 @@ enum ReaderClient {
 
     // MARK: - Upload
 
-    static func uploadEPUB(at fileURL: URL, filename: String) async throws {
-        await ensureBooksDirectory()
+    static func uploadEPUB(at fileURL: URL, filename: String, destination: Destination) async throws {
+        await ensureDirectory(destination)
 
         let fileData = try Data(contentsOf: fileURL)
         let boundary = "----MiniEreaderBoundary\(UUID().uuidString)"
         var components = URLComponents(url: baseURL.appendingPathComponent("upload"),
                                        resolvingAgainstBaseURL: false)!
-        components.queryItems = [URLQueryItem(name: "path", value: booksPath)]
+        components.queryItems = [URLQueryItem(name: "path", value: destination.path)]
 
         var req = URLRequest(url: components.url!)
         req.httpMethod = "POST"
@@ -70,28 +82,32 @@ enum ReaderClient {
         let (data, response) = try await session.data(for: req)
         let http = response as! HTTPURLResponse
         let responseText = String(data: data, encoding: .utf8) ?? ""
-        NSLog("[reader] POST /upload?path=%@ → %d", booksPath, http.statusCode)
+        NSLog("[reader] POST /upload?path=%@ → %d", destination.path, http.statusCode)
 
         guard http.statusCode == 200 else {
             throw ReaderError.httpError(http.statusCode, responseText)
         }
     }
 
-    /// Create `/MiniEreader/` if it isn't there. mkdir is a no-op when the
-    /// folder already exists; logged but errors are non-fatal (upload will
-    /// fail on its own if the folder genuinely can't be created).
-    static func ensureBooksDirectory() async {
+    /// mkdir is a no-op when the folder already exists; errors are logged
+    /// but non-fatal (upload will fail on its own if creation truly failed).
+    static func ensureDirectory(_ destination: Destination) async {
         var req = URLRequest(url: baseURL.appendingPathComponent("mkdir"))
         req.httpMethod = "POST"
         req.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        req.httpBody = Data("name=\(booksFolder)&path=/".utf8)
+        var components = URLComponents()
+        components.queryItems = [
+            URLQueryItem(name: "name", value: destination.folder),
+            URLQueryItem(name: "path", value: "/"),
+        ]
+        req.httpBody = Data((components.percentEncodedQuery ?? "").utf8)
 
         do {
             let (data, response) = try await session.data(for: req)
             let http = response as! HTTPURLResponse
             let text = String(data: data, encoding: .utf8) ?? ""
             NSLog("[reader] POST /mkdir name=%@ → %d %@",
-                  booksFolder, http.statusCode, text.prefix(120) as CVarArg)
+                  destination.folder, http.statusCode, text.prefix(120) as CVarArg)
         } catch {
             NSLog("[reader] /mkdir failed: %@", error.localizedDescription)
         }

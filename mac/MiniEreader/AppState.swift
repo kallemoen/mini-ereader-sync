@@ -382,7 +382,8 @@ final class AppState: ObservableObject {
             let url = URL(fileURLWithPath: path)
             let filename = sanitizedFilename(article.title, id: article.id)
             do {
-                try await ReaderClient.uploadEPUB(at: url, filename: filename)
+                let destination: ReaderClient.Destination = article.isManual ? .imported : .instapaper
+                try await ReaderClient.uploadEPUB(at: url, filename: filename, destination: destination)
                 try Library.shared.setStatus(article.id, status: .synced, syncedAt: Date())
                 success += 1
             } catch {
